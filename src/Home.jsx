@@ -274,7 +274,7 @@ export default function App() {
             }}
           />
           <Button variant="contained" component="label" sx={{ mt: 2 }}>Select File<input hidden accept="image/*" type="file" onChange={(e) => setUploadFile(e.target.files[0])} /></Button>
-          {uploadFile && <Typography mt={2} sx={{ color: '#fff', fontStyle: 'italic' }}>Selected File: {uploadFile.name}</Typography>}
+          {uploadFile && <Typography mt={2} sx={{ color: 'rgb(53, 227, 0)', fontStyle: 'italic' }}>Selected File: {uploadFile.name}</Typography>}
           {loading && <Box sx={{ width: '100%', mt: 2 }}><Typography variant="caption" sx={{ color: '#fff' }}>{progress}%</Typography><Box sx={{ background: '#333', borderRadius: 1 }}><Box sx={{ width: `${progress}%`, height: 8, background: '#00e676', borderRadius: 1 }} /></Box></Box>}
         </MuiDialogContent>
         <DialogActions>
