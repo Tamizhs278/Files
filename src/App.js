@@ -5,6 +5,7 @@ import LoginPage from './login';
 import HomePage from './Home';
 import { AuthProvider } from './AuthContext';
 import ProtectedRoute from './ProtectedRoute';
+import Loginhistory from './LoginHistory'
 
 export default function App() {
   return (
@@ -17,6 +18,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <HomePage />
+              </ProtectedRoute>
+            }
+          />
+           <Route
+            path="/loginhistory"
+            element={
+              <ProtectedRoute>
+                <Loginhistory />
               </ProtectedRoute>
             }
           />

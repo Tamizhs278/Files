@@ -1,17 +1,15 @@
-// App.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
   IconButton, TextField, Typography, List, ListItem, ListItemText,
-  Paper, DialogContentText, Snackbar, Alert, CircularProgress,
-  DialogContent as MuiDialogContent, InputAdornment, Skeleton, MenuItem, Select
+  Paper, Snackbar, Alert, Skeleton, MenuItem, Select, InputAdornment
 } from '@mui/material';
-import { Delete, Edit, Save, Download, Visibility, Search } from '@mui/icons-material';
-import {
-  addDoc, collection, query, getDocs,
-  doc, deleteDoc, updateDoc
-} from "firebase/firestore";
+import { Delete, Edit, Save, Download, Visibility, PictureAsPdf, Search } from '@mui/icons-material';
+import { addDoc, collection, query, getDocs, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from './Auth';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import {  useNavigate } from 'react-router-dom';
 
 export default function App() {
   const [sfiles, setSFiles] = useState([]);
@@ -30,22 +28,21 @@ export default function App() {
   const [loadingList, setLoadingList] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
+  const imageRef = useRef();
 
   const CLOUDINARY_CLOUD_NAME = "db3nu8wmn";
   const CLOUDINARY_UPLOAD_PRESET = "mySevai";
 
-  useEffect(() => {
-    getFiles();
-  }, []);
+  const navigate = useNavigate();
+
+  useEffect(() => { getFiles(); }, []);
 
   const getFiles = async () => {
     setLoadingList(true);
     const q = query(collection(db, "Files"));
     const snapshot = await getDocs(q);
     let files = [];
-    snapshot.forEach((doc) => {
-      files.push({ ...doc.data(), id: doc.id });
-    });
+    snapshot.forEach((doc) => files.push({ ...doc.data(), id: doc.id }));
     setSFiles(files);
     setLoadingList(false);
   };
@@ -61,12 +58,10 @@ export default function App() {
 
   const handleImageAdd = async () => {
     if (!uploadFile || !uploadName) return;
-
-    const fileExtension = uploadFile.name.split('.').pop().toLowerCase();
-    if (!['jpg', 'jpeg', 'png'].includes(fileExtension)) {
-      setError('Only .jpg, .jpeg, and .png files are allowed.');
-      setSnackbarOpen(true);
-      return;
+    const ext = uploadFile.name.split('.').pop().toLowerCase();
+    if (!['jpg', 'jpeg', 'png'].includes(ext)) {
+      setError('Only .jpg, .jpeg, .png allowed.');
+      setSnackbarOpen(true); return;
     }
 
     setLoading(true);
@@ -78,29 +73,21 @@ export default function App() {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`);
       xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          const percent = Math.round((e.loaded * 100) / e.total);
-          setProgress(percent);
-        }
+        if (e.lengthComputable) setProgress(Math.round((e.loaded * 100) / e.total));
       });
       xhr.onload = async () => {
         const data = JSON.parse(xhr.responseText);
         if (data.secure_url) {
-          const newDoc = { Img: data.secure_url, Name: uploadName };
-          await addDoc(collection(db, "Files"), newDoc);
-          await getFiles();
-          handleCloseDialog();
+          await addDoc(collection(db, "Files"), { Img: data.secure_url, Name: uploadName });
+          await getFiles(); handleCloseDialog();
         } else {
-          setError('Upload failed. Please try again.');
-          setSnackbarOpen(true);
+          setError('Upload failed.'); setSnackbarOpen(true);
         }
         setLoading(false);
       };
       xhr.send(formData);
-    } catch (err) {
-      setLoading(false);
-      setError('Upload failed.');
-      setSnackbarOpen(true);
+    } catch {
+      setError('Upload failed.'); setSnackbarOpen(true); setLoading(false);
     }
   };
 
@@ -116,10 +103,8 @@ export default function App() {
   };
 
   const handleSave = async (index) => {
-    const image = sfiles[index];
-    await updateDoc(doc(db, "Files", image.id), { Name: tempName });
-    await getFiles();
-    setEditIndex(null);
+    await updateDoc(doc(db, "Files", sfiles[index].id), { Name: tempName });
+    await getFiles(); setEditIndex(null);
   };
 
   const handleListItemClick = (img) => {
@@ -134,6 +119,17 @@ export default function App() {
     link.click();
   };
 
+  const handleDownloadPDF = async () => {
+    const element = imageRef.current;
+    const canvas = await html2canvas(element);
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF();
+    const width = pdf.internal.pageSize.getWidth();
+    const height = (canvas.height * width) / canvas.width;
+    pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+    pdf.save(`${selectedImage.Name}.pdf`);
+  };
+
   const filteredFiles = sfiles
     .filter(file => file.Name.toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => sortOrder === 'asc'
@@ -141,30 +137,8 @@ export default function App() {
       : b.Name.localeCompare(a.Name));
 
   return (
-    <Box
-      sx={{
-        p: 4,
-        minHeight: '100vh',
-        background: 'linear-gradient(120deg, #2c3e50, #4ca1af)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        color: '#f0f0f0'
-      }}
-    >
-      <Paper
-        elevation={10}
-        sx={{
-          p: 4,
-          width: '100%',
-          maxWidth: 700,
-          backdropFilter: 'blur(20px)',
-          background: 'rgba(255, 255, 255, 0.1)',
-          borderRadius: 4,
-          boxShadow: '0 8px 32px 0 rgba(0,0,0,0.5)',
-          border: '1px solid rgba(255, 255, 255, 0.18)',
-        }}
-      >
+    <Box sx={{ p: 4, minHeight: '100vh', background: 'linear-gradient(120deg, #2c3e50, #4ca1af)', display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#f0f0f0' }}>
+      <Paper elevation={10} sx={{ p: 4, width: '100%', maxWidth: 700, backdropFilter: 'blur(20px)', background: 'rgba(255, 255, 255, 0.1)', borderRadius: 4 }}>
         <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', textAlign: 'center', color: '#ffffff' }}>
           📁 Documents File Manager
         </Typography>
@@ -183,68 +157,53 @@ export default function App() {
             }}
             sx={{
               input: { color: '#fff' },
-              label: { color: '#ddd' },
+              width: '60%',
               '& .MuiOutlinedInput-root': {
                 '& fieldset': { borderColor: '#aaa' },
-                '&:hover fieldset': { borderColor: '#fff' },
-              },
-              width: '60%'
+                '&:hover fieldset': { borderColor: '#fff' }
+              }
             }}
           />
-          <Select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            sx={{
-              color: '#fff',
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#aaa' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' }
-            }}
+          <Select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}
+            sx={{ color: '#fff', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#aaa' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' } }}
           >
             <MenuItem value="asc">Sort A-Z</MenuItem>
             <MenuItem value="desc">Sort Z-A</MenuItem>
           </Select>
         </Box>
 
-        <Button
-          variant="contained"
-          onClick={handleOpenDialog}
-          sx={{
-            mb: 3,
-            background: 'linear-gradient(135deg, #ff9966, #ff5e62)',
-            color: '#fff',
-            fontWeight: 'bold'
-          }}
-        >
+        <Box sx={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <Button variant="contained" onClick={handleOpenDialog}
+          sx={{ mb: 3, background: 'linear-gradient(135deg, #ff9966, #ff5e62)', color: '#fff', fontWeight: 'bold' }}>
           Upload Image
         </Button>
+        <Button  variant="contained" onClick={()=>navigate("/loginhistory")}
+          sx={{ mb: 3, background: 'linear-gradient(135deg, #ff9966, #ff5e62)', color: '#fff', fontWeight: 'bold' }}>
+          Login History
+        </Button>
+        </Box>
 
         <Box sx={{ maxHeight: 400, overflowY: 'auto', background: 'rgba(255,255,255,0.05)', borderRadius: 2, p: 2 }}>
-          {loadingList ? (
-            [...Array(5)].map((_, i) => (
-              <Skeleton key={i} variant="rounded" height={60} sx={{ mb: 2, backgroundColor: 'rgba(255,255,255,0.2)' }} />
-            ))
-          ) : (
+          {loadingList ? [...Array(5)].map((_, i) => (
+            <Skeleton key={i} variant="rounded" height={60} sx={{ mb: 2, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+          )) : (
             <List>
               {filteredFiles.map((img, index) => (
                 <ListItem key={img.id} sx={{ background: 'rgba(255,255,255,0.1)', mb: 1, borderRadius: 2 }}>
                   {editIndex === index ? (
-                    <TextField
-                      value={tempName}
-                      onChange={(e) => setTempName(e.target.value)}
-                      size="small"
-                      fullWidth
-                      InputProps={{ style: { color: '#fff' } }}
-                    />
+                    <TextField defaultValue={img.Name} onChange={(e) => setTempName(e.target.value)} size="small" fullWidth InputProps={{ style: { color: '#fff' } }} />
                   ) : (
                     <ListItemText primary={img.Name} primaryTypographyProps={{ sx: { color: '#fff' } }} />
                   )}
-                  <IconButton onClick={() => handleListItemClick(img)} color="primary"><Visibility /></IconButton>
+                  <IconButton onClick={() => handleListItemClick(img)} sx={{ color: 'rgb(255, 255, 255)' }}><Visibility /></IconButton>
                   {editIndex === index ? (
-                    <IconButton onClick={() => handleSave(index)} color="success"><Save /></IconButton>
+                    <IconButton onClick={() => handleSave(index)}><Save /></IconButton>
                   ) : (
                     <>
-                      <IconButton onClick={() => handleEdit(index)} color="info"><Edit /></IconButton>
-                      <IconButton onClick={() => setConfirmDeleteId(img.id)} color="error"><Delete /></IconButton>
+                      {/* <IconButton onClick={() => handleEdit(index)} sx={{ color: 'rgb(0, 255, 255)' }}><Edit /></IconButton> */}
+          <IconButton onClick={() => handleDownload(selectedImage)} sx={{ color: 'rgb(0, 217, 255)' }}><Download /></IconButton>
+
+                      <IconButton onClick={() => setConfirmDeleteId(img.id)} sx={{ color: ' #f44336' }}><Delete /></IconButton>
                     </>
                   )}
                 </ListItem>
@@ -254,40 +213,23 @@ export default function App() {
         </Box>
       </Paper>
 
-      <Dialog open={open} onClose={handleCloseDialog} >
-        <DialogTitle sx={{ color: 'rgb(218, 50, 53)' }}>Upload Image</DialogTitle>
-        <MuiDialogContent>
-          <TextField
-            margin="dense"
-            label="Image Name"
-            fullWidth
-            variant="outlined"
-            value={uploadName}
-            onChange={(e) => setUploadName(e.target.value.toUpperCase())}
-            sx={{
-              input: { color: "rgb(0, 0, 0)" },
-              label: { color: ' rgb(0, 59, 251)' },
-              '& .MuiOutlinedInput-root': {
-                '& fieldset': { borderColor: 'rgb(0, 0, 0)' },
-                '&:hover fieldset': { borderColor: '#ddd' },
-              },
-            }}
-          />
+      <Dialog open={open} onClose={handleCloseDialog}>
+        <DialogTitle>Upload Image</DialogTitle>
+        <DialogContent>
+          <TextField label="Image Name" fullWidth value={uploadName} onChange={(e) => setUploadName(e.target.value)} />
           <Button variant="contained" component="label" sx={{ mt: 2 }}>Select File<input hidden accept="image/*" type="file" onChange={(e) => setUploadFile(e.target.files[0])} /></Button>
-          {uploadFile && <Typography mt={2} sx={{ color: 'rgb(53, 227, 0)', fontStyle: 'italic' }}>Selected File: {uploadFile.name}</Typography>}
-          {loading && <Box sx={{ width: '100%', mt: 2 }}><Typography variant="caption" sx={{ color: '#fff' }}>{progress}%</Typography><Box sx={{ background: '#333', borderRadius: 1 }}><Box sx={{ width: `${progress}%`, height: 8, background: '#00e676', borderRadius: 1 }} /></Box></Box>}
-        </MuiDialogContent>
+          {uploadFile && <Typography mt={2}>Selected: {uploadFile.name}</Typography>}
+          {loading && <Box sx={{ width: '100%', mt: 2 }}><Typography>{progress}%</Typography><Box sx={{ background: '#444', borderRadius: 1 }}><Box sx={{ width: `${progress}%`, height: 8, background: '#00e676' }} /></Box></Box>}
+        </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog} sx={{ color: ' #e30000' }}>Cancel</Button>
-          <Button onClick={handleImageAdd} variant="contained" disabled={!uploadFile || !uploadName || loading}>
-            Upload
-          </Button>
+          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleImageAdd} disabled={!uploadFile || !uploadName || loading}>Upload</Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={!!confirmDeleteId} onClose={() => setConfirmDeleteId(null)}>
         <DialogTitle>Confirm Delete</DialogTitle>
-        <MuiDialogContent><Typography>Are you sure you want to delete this image?</Typography></MuiDialogContent>
+        <DialogContent><Typography>Are you sure you want to delete this image?</Typography></DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
           <Button color="error" onClick={() => handleDelete(confirmDeleteId)}>Delete</Button>
@@ -297,18 +239,17 @@ export default function App() {
       <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)}>
         <DialogTitle>Preview: {selectedImage?.Name}</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            <img src={selectedImage?.Img} alt={selectedImage?.Name} style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: 12 }} />
-          </DialogContentText>
+          <Box ref={imageRef}><img src={selectedImage?.Img} alt={selectedImage?.Name} style={{ maxWidth: '100%', borderRadius: 12 }} /></Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPreviewOpen(false)}>Close</Button>
-          <Button onClick={() => handleDownload(selectedImage)} variant="contained" color="primary">Download</Button>
+          {/* <IconButton onClick={() => handleDownload(selectedImage)} sx={{ color: 'rgb(0, 255, 26)' }}><Download /></IconButton> */}
+          <IconButton onClick={handleDownloadPDF} sx={{ color: 'rgb(255, 17, 0)' }}><PictureAsPdf /></IconButton>
         </DialogActions>
       </Dialog>
 
       <Snackbar open={snackbarOpen} autoHideDuration={4000} onClose={handleSnackbarClose}>
-        <Alert onClose={handleSnackbarClose} severity="error" sx={{ width: '100%' }}>{error}</Alert>
+        <Alert onClose={handleSnackbarClose} severity="error">{error}</Alert>
       </Snackbar>
     </Box>
   );
