@@ -4,8 +4,8 @@ import {
     TableContainer, TableHead, TableRow, TablePagination,
     TextField, Button, Stack, IconButton, MenuItem, Select, InputLabel, FormControl
 } from '@mui/material';
-import { Visibility, Edit, Delete, FilterList, CalendarToday } from '@mui/icons-material';
-import { collection, query, getDocs ,deleteDoc,doc} from "firebase/firestore";
+import { Visibility, Edit, Delete } from '@mui/icons-material';
+import { collection, query, getDocs, deleteDoc, doc } from "firebase/firestore";
 import { db } from './Auth';
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
@@ -36,7 +36,6 @@ export default function Dashboard() {
             const snapshot = await getDocs(q);
             let files = [];
             snapshot.forEach((doc) => files.push({ ...doc.data(), id: doc.id }));
-
             files.sort((a, b) => b.time - a.time);
             setLogs(files);
         } catch (err) {
@@ -50,8 +49,7 @@ export default function Dashboard() {
     const handleDelete = async (id) => {
         await deleteDoc(doc(db, "LoginHistory", id));
         await getLoginHistory();
-       
-      };
+    };
 
     const applyFilters = () => {
         let result = [...logs];
@@ -85,7 +83,9 @@ export default function Dashboard() {
             log.type,
             log.vendor,
             log.ip || 'N/A',
-            log.location || 'N/A',
+            typeof log.location === 'object' && log.location?.latitude && log.location?.longitude
+                ? `${log.location.latitude}, ${log.location.longitude}`
+                : log.location || 'N/A',
             new Date(log.time).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
         ]);
 
@@ -107,6 +107,10 @@ export default function Dashboard() {
 
     const csvData = filteredLogs.map(log => ({
         ...log,
+        location:
+            typeof log.location === 'object' && log.location?.latitude && log.location?.longitude
+                ? `${log.location.latitude}, ${log.location.longitude}`
+                : log.location || 'N/A',
         time: new Date(log.time).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
     }));
 
@@ -218,12 +222,25 @@ export default function Dashboard() {
                                                 <TableCell>{log.type}</TableCell>
                                                 <TableCell>{log.vendor}</TableCell>
                                                 <TableCell>{log.ip || 'N/A'}</TableCell>
-                                                <TableCell>{log.location || 'N/A'}</TableCell>
+                                                <TableCell>
+                                                    {log.location?.latitude && log.location?.longitude ? (
+                                                        <a
+                                                            href={`https://www.google.com/maps?q=${log.location.latitude},${log.location.longitude}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            style={{ color: '#00f260', textDecoration: 'underline' }}
+                                                        >
+                                                            {`${log.location.latitude}, ${log.location.longitude}`}
+                                                        </a>
+                                                    ) : (
+                                                        log.location || 'N/A'
+                                                    )}
+                                                </TableCell>
                                                 <TableCell>{new Date(log.time).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</TableCell>
                                                 <TableCell>
                                                     <IconButton color="primary"><Visibility /></IconButton>
                                                     <IconButton color="secondary"><Edit /></IconButton>
-                                                    <IconButton color="error" onClick={()=>handleDelete(log.id)}><Delete /></IconButton>
+                                                    <IconButton color="error" onClick={() => handleDelete(log.id)}><Delete /></IconButton>
                                                 </TableCell>
                                             </TableRow>
                                         ))
