@@ -23,7 +23,7 @@ export default function LoginPage() {
     if (loading) return;
     setLoading(true);
     try {
-      if (email === 'tamizhs@files.com' && password === '14081604') {
+      if (email === 'tamizhs@files.com' && password === '1416') {
         setError('');
         login();
         navigate('/home');
@@ -31,8 +31,9 @@ export default function LoginPage() {
         const detector = new DeviceDetector();
         const userAgent = navigator.userAgent;
         const parsedDevice = detector.parse(userAgent);
-        const timestamp = new Date().toISOString();
-        const localDate = new Date(timestamp);
+        const currentDateTime = `${new Date().getDate()}/${new Date().getMonth() + 1}/${new Date().getFullYear()} ${new Date().toLocaleTimeString()}`;
+         console.log(currentDateTime);
+         
 
         const deviceInfo = {
           browser: `${parsedDevice.client?.name} ${parsedDevice.client?.version}`,
@@ -40,7 +41,7 @@ export default function LoginPage() {
           device: parsedDevice.device?.model || 'Unknown Device',
           vendor: parsedDevice.device?.brand || 'Unknown Vendor',
           type: parsedDevice.device?.type || 'desktop',
-          time: localDate.toLocaleString(),
+          time: currentDateTime,
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           userEmail: email,
         };

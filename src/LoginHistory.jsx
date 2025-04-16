@@ -236,7 +236,7 @@ export default function Dashboard() {
                                                         log.location || 'N/A'
                                                     )}
                                                 </TableCell>
-                                                <TableCell>{new Date(log.time).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</TableCell>
+                                                <TableCell>{log.time}</TableCell>
                                                 <TableCell>
                                                     <IconButton color="primary"><Visibility /></IconButton>
                                                     <IconButton color="secondary"><Edit /></IconButton>
